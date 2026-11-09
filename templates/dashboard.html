@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ULTRON — Command Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<style>
+:root {
+  --red: #ff0000;
+  --red2: #cc0000;
+  --red3: #ff2222;
+  --red-dim: rgba(255,0,0,0.18);
+  --red-glow: 0 0 30px rgba(255,0,0,0.8), 0 0 60px rgba(255,0,0,0.4);
+  --red-border: rgba(255,0,0,0.5);
+  --bg: #000000;
+  --panel: rgba(8,0,0,0.88);
+  --text: rgba(255,80,80,0.95);
+  --text-dim: rgba(255,100,100,0.6);
+  --mono: 'Share Tech Mono', monospace;
+  --brand: 'Orbitron', sans-serif;
+  --ui: 'Rajdhani', sans-serif;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  width:100vw; height:100vh;
+  background:#000;
+  color:var(--text);
+  font-family:var(--ui);
+  overflow:hidden;
+  position:relative;
+  user-select:none;
+}
+
+/* ── Scanline overlay ── */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,0,0,0.025) 2px,
+      rgba(255,0,0,0.025) 4px
+    );
+  pointer-events:none; z-index:200;
+  animation:scanPan 8s linear infinite;
+}
+@keyframes scanPan {
+  0%   { background-position:0 0; }
+  100% { background-position:0 100vh; }
+}
+
+/* ── Vignette ── */
+body::after {
+  content:'';
+  position:fixed; inset:0;
+  background:radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.92) 100%);
+  pointer-events:none; z-index:199;
+}
+
+/* ─────────────────────────────────────────
+   CORNER BRACKETS
+───────────────────────────────────────── */
+.bracket {
+  position:fixed; width:50px; height:50px;
+  border:2px solid var(--red);
+  pointer-events:none; z-index:300;
+  filter:drop-shadow(0 0 8px var(--red));
+}
+.bracket-tl { top:14px; left:14px; border-right:none; border-bottom:none; }
+.bracket-tr { top:14px; right:14px; border-left:none; border-bottom:none; }
+.bracket-bl { bottom:14px; left:14px; border-right:none; border-top:none; }
+.bracket-br { bottom:14px; right:14px; border-left:none; border-top:none; }
+
+/* rotating corner accents */
+.bracket::before {
+  content:'';
+  position:absolute; width:8px; height:8px;
+  background:var(--red);
+  box-shadow:0 0 10px var(--red);
+}
+.bracket-tl::before { top:-2px; left:-2px; }
+.bracket-tr::before { top:-2px; right:-2px; }
+.bracket-bl::before { bottom:-2px; left:-2px; }
+.bracket-br::before { bottom:-2px; right:-2px; }
+
+/* ─────────────────────────────────────────
+   TOP HUD BAR
+───────────────────────────────────────── */
+#top-bar {
+  position:fixed; top:0; left:0; right:0;
+  height:56px;
+  background:linear-gradient(180deg, rgba(30,0,0,0.95), rgba(5,0,0,0.6));
+  border-bottom:1px solid var(--red-border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px;
+  z-index:150;
+  box-shadow:0 2px 30px rgba(255,0,0,0.3);
+}
+
+.logo-block {
+  display:flex; align-items:center; gap:14px;
+}
+.logo-icon {
+  width:36px; height:36px;
+  border:2px solid var(--red);
+  border-radius:4px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--brand); font-size:14px; font-weight:900;
+  color:var(--red);
+  box-shadow:var(--red-glow);
+  position:relative;
+  animation:iconPulse 2s ease-in-out infinite;
+}
+@keyframes iconPulse {
+  0%,100% { box-shadow:var(--red-glow); }
+  50%      { box-shadow:0 0 8px rgba(255,0,0,0.4); }
+}
+.logo-icon::before {
+  content:'';
+  position:absolute; inset:4px;
+  border:1px solid rgba(255,0,0,0.4);
+  border-radius:2px;
+}
+.logo-text h1 {
+  font-family:var(--brand); font-size:18px; font-weight:900;
+  color:var(--red); letter-spacing:6px;
+  text-shadow:0 0 20px var(--red);
+}
+.logo-text p {
+  font-family:var(--mono); font-size:9px;
+  color:var(--text-dim); letter-spacing:3px;
+}
+
+.top-center {
+  display:flex; gap:30px; align-items:center;
+}
+.hud-stat {
+  text-align:center;
+}
+.hud-stat .val {
+  font-family:var(--brand); font-size:16px; font-weight:700;
+  color:var(--red); text-shadow:0 0 10px var(--red);
+}
+.hud-stat .lbl {
+  font-family:var(--mono); font-size:8px; color:var(--text-dim);
+  letter-spacing:2px;
+}
+
+.top-right {
+  display:flex; align-items:center; gap:16px;
+}
+.status-pill {
+  padding:4px 12px;
+  border:1px solid var(--red);
+  border-radius:2px;
+  font-family:var(--mono); font-size:10px;
+  color:var(--red);
+  box-shadow:0 0 8px rgba(255,0,0,0.4);
+}
+.tools-count {
+  font-family:var(--mono); font-size:11px;
+  color:var(--text-dim);
+}
+
+/* ─────────────────────────────────────────
+   TICKER TAPE
+───────────────────────────────────────── */
+#ticker {
+  position:fixed; bottom:120px; left:0; right:0;
+  height:22px;
+  background:rgba(20,0,0,0.7);
+  border-top:1px solid rgba(255,0,0,0.3);
+  border-bottom:1px solid rgba(255,0,0,0.3);
+  overflow:hidden; z-index:140;
+  display:flex; align-items:center;
+}
+#ticker-inner {
+  display:flex; gap:80px;
+  white-space:nowrap;
+  animation:tickScroll 30s linear infinite;
+}
+#ticker-inner span {
+  font-family:var(--mono); font-size:9px;
+  color:var(--text-dim); letter-spacing:2px;
+}
+#ticker-inner span.sep { color:var(--red); opacity:0.6; }
+@keyframes tickScroll {
+  0%   { transform:translateX(0); }
+  100% { transform:translateX(-50%); }
+}
+
+/* ─────────────────────────────────────────
+   MAIN LAYOUT
+───────────────────────────────────────── */
+#main {
+  position:fixed;
+  top:56px; bottom:120px; left:0; right:0;
+  display:grid;
+  grid-template-columns:260px 1fr 260px;
+  gap:0;
+  z-index:10;
+}
+
+/* ─────────────────────────────────────────
+   LEFT WING
+───────────────────────────────────────── */
+#left-wing {
+  padding:16px 12px;
+  border-right:1px solid rgba(255,0,0,0.2);
+  display:flex; flex-direction:column; gap:10px;
+  overflow:hidden;
+}
+
+.panel {
+  background:var(--panel);
+  border:1px solid rgba(255,0,0,0.25);
+  border-radius:2px;
+  padding:10px 12px;
+  position:relative;
+}
+.panel::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0;
+  height:1px;
+  background:linear-gradient(90deg, transparent, var(--red), transparent);
+  opacity:0.6;
+}
+.panel-title {
+  font-family:var(--mono); font-size:9px;
+  color:var(--red); letter-spacing:3px;
+  margin-bottom:8px;
+  padding-bottom:5px;
+  border-bottom:1px solid rgba(255,0,0,0.2);
+}
+
+/* Vitals bars */
+.vital-row {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:6px;
+}
+.vital-row .v-lbl {
+  font-family:var(--mono); font-size:9px; color:var(--text-dim);
+  width:70px; flex-shrink:0;
+}
+.vital-track {
+  flex:1; height:4px;
+  background:rgba(255,0,0,0.1);
+  border-radius:2px; margin:0 8px;
+  overflow:hidden;
+}
+.vital-fill {
+  height:100%;
+  background:linear-gradient(90deg, #660000, var(--red));
+  border-radius:2px;
+  box-shadow:0 0 6px var(--red);
+  animation:vitalPulse 3s ease-in-out infinite;
+}
+@keyframes vitalPulse {
+  0%,100% { opacity:1; }
+  50%      { opacity:0.7; }
+}
+.vital-row .v-val {
+  font-family:var(--mono); font-size:10px; color:var(--red);
+  width:36px; text-align:right;
+}
+
+/* System info rows */
+.info-row {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:5px;
+}
+.info-row .i-lbl {
+  font-family:var(--mono); font-size:9px; color:var(--text-dim);
+}
+.info-row .i-val {
+  font-family:var(--mono); font-size:10px; color:var(--red);
+}
+
+/* Action buttons */
+.action-btn {
+  width:100%; padding:7px 10px;
+  background:rgba(180,0,0,0.15);
+  border:1px solid rgba(255,0,0,0.4);
+  border-radius:2px;
+  color:var(--red); font-family:var(--mono); font-size:10px;
+  letter-spacing:2px; cursor:pointer;
+  transition:all 0.2s;
+  text-align:left;
+  position:relative;
+  overflow:hidden;
+}
+.action-btn::before {
+  content:'► ';
+  color:rgba(255,0,0,0.6);
+}
+.action-btn:hover {
+  background:rgba(255,0,0,0.2);
+  border-color:var(--red);
+  box-shadow:0 0 12px rgba(255,0,0,0.4);
+  transform:translateX(3px);
+}
+.action-btn:active { transform:translateX(0); background:rgba(255,0,0,0.35); }
+
+/* Waveform mini */
+.waveform {
+  height:32px;
+  display:flex; align-items:center; gap:2px;
+  margin-top:6px;
+}
+.waveform-bar {
+  flex:1; background:var(--red);
+  border-radius:1px;
+  box-shadow:0 0 4px rgba(255,0,0,0.6);
+  animation:waveDance 0.6s ease-in-out infinite alternate;
+}
+.waveform-bar:nth-child(odd)  { animation-delay:0.1s; }
+.waveform-bar:nth-child(3n)   { animation-delay:0.2s; }
+.waveform-bar:nth-child(4n)   { animation-delay:0.35s; }
+@keyframes waveDance {
+  0%   { height:4px;  opacity:0.4; }
+  100% { height:28px; opacity:1; }
+}
+
+/* ─────────────────────────────────────────
+   CENTER – ARC REACTOR HUD
+───────────────────────────────────────── */
+#center {
+  position:relative;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+}
+
+/* Canvas rings */
+#hud-canvas {
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  pointer-events:none;
+}
+
+/* Core orb */
+.core-wrap {
+  position:relative;
+  width:280px; height:280px;
+  display:flex; align-items:center; justify-content:center;
+  z-index:20;
+}
+
+.core-orb {
+  width:160px; height:160px;
+  border-radius:50%;
+  background:radial-gradient(circle, #ff0000 0%, #880000 40%, #1a0000 70%, transparent 100%);
+  box-shadow:
+    0 0 40px rgba(255,0,0,0.9),
+    0 0 80px rgba(255,0,0,0.6),
+    0 0 160px rgba(255,0,0,0.3),
+    inset 0 0 40px rgba(255,0,0,0.5);
+  animation:orbBreath 2.4s ease-in-out infinite;
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+}
+@keyframes orbBreath {
+  0%,100% { box-shadow:0 0 40px rgba(255,0,0,0.9), 0 0 80px rgba(255,0,0,0.6), 0 0 160px rgba(255,0,0,0.3), inset 0 0 40px rgba(255,0,0,0.5); }
+  50%      { box-shadow:0 0 60px rgba(255,0,0,1),   0 0 120px rgba(255,0,0,0.8), 0 0 220px rgba(255,0,0,0.4), inset 0 0 60px rgba(255,0,0,0.7); }
+}
+
+.orb-letter {
+  font-family:var(--brand); font-size:52px; font-weight:900;
+  color:#fff;
+  text-shadow:0 0 20px rgba(255,255,255,0.8), 0 0 40px var(--red);
+  z-index:2;
+}
+
+/* Rotating rings around orb */
+.ring {
+  position:absolute; border-radius:50%; border:2px solid transparent;
+  top:50%; left:50%; transform:translate(-50%,-50%);
+}
+.ring-1 {
+  width:200px; height:200px;
+  border-top-color:var(--red); border-right-color:rgba(255,0,0,0.4);
+  animation:spin1 4s linear infinite;
+}
+.ring-2 {
+  width:230px; height:230px;
+  border-bottom-color:var(--red); border-left-color:rgba(255,0,0,0.3);
+  animation:spin2 6s linear infinite reverse;
+}
+.ring-3 {
+  width:265px; height:265px;
+  border-top-color:rgba(255,0,0,0.5); border-right-color:rgba(255,0,0,0.2);
+  border-style:dashed;
+  animation:spin1 10s linear infinite;
+}
+@keyframes spin1 { to { transform:translate(-50%,-50%) rotate(360deg); } }
+@keyframes spin2 { to { transform:translate(-50%,-50%) rotate(-360deg); } }
+
+/* Tick marks on ring */
+.ring-ticks {
+  position:absolute;
+  width:265px; height:265px;
+  top:50%; left:50%; transform:translate(-50%,-50%);
+  animation:spin1 18s linear infinite;
+}
+.ring-ticks::before, .ring-ticks::after {
+  content:'';
+  position:absolute; background:var(--red);
+  box-shadow:0 0 4px var(--red);
+}
+.ring-ticks::before { width:2px; height:10px; top:0; left:50%; margin-left:-1px; }
+.ring-ticks::after  { width:10px; height:2px; top:50%; right:0; margin-top:-1px; }
+
+/* Core status text */
+.core-status {
+  position:absolute; bottom:14px;
+  font-family:var(--mono); font-size:10px;
+  color:var(--red); letter-spacing:4px;
+  text-shadow:0 0 10px var(--red);
+  animation:blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ─────────────────────────────────────────
+   HUD CANVAS (drawn with JS)
+───────────────────────────────────────── */
+
+/* Quadrant data panels around center */
+.quad-panel {
+  position:absolute;
+  background:rgba(10,0,0,0.75);
+  border:1px solid rgba(255,0,0,0.3);
+  padding:8px 12px;
+  min-width:120px;
+  z-index:15;
+}
+.quad-panel::after {
+  content:'';
+  position:absolute;
+  background:var(--red);
+  box-shadow:0 0 6px var(--red);
+}
+
+/* North panel */
+.quad-n {
+  top:12px; left:50%; transform:translateX(-50%);
+  text-align:center;
+}
+.quad-n::after { width:1px; height:30px; bottom:-31px; left:50%; }
+
+/* South panel */
+.quad-s {
+  bottom:12px; left:50%; transform:translateX(-50%);
+  text-align:center;
+}
+.quad-s::after { width:1px; height:30px; top:-31px; left:50%; }
+
+/* East panel */
+.quad-e {
+  right:12px; top:50%; transform:translateY(-50%);
+}
+.quad-e::after { width:30px; height:1px; top:50%; left:-31px; }
+
+/* West panel */
+.quad-w {
+  left:12px; top:50%; transform:translateY(-50%);
+}
+.quad-w::after { width:30px; height:1px; top:50%; right:-31px; }
+
+.quad-title {
+  font-family:var(--mono); font-size:8px; color:var(--red);
+  letter-spacing:3px; margin-bottom:4px;
+}
+.quad-value {
+  font-family:var(--brand); font-size:20px; font-weight:700;
+  color:var(--red); text-shadow:0 0 12px var(--red);
+}
+.quad-unit {
+  font-family:var(--mono); font-size:8px; color:var(--text-dim);
+}
+
+/* ─────────────────────────────────────────
+   RIGHT WING
+───────────────────────────────────────── */
+#right-wing {
+  padding:16px 12px;
+  border-left:1px solid rgba(255,0,0,0.2);
+  display:flex; flex-direction:column; gap:10px;
+  overflow:hidden;
+}
+
+/* News feed */
+.news-item {
+  padding:5px 0;
+  border-bottom:1px solid rgba(255,0,0,0.1);
+  font-family:var(--mono); font-size:9px;
+  color:var(--text-dim); line-height:1.4;
+}
+.news-item .n-tag { color:var(--red); margin-right:4px; }
+
+/* Mini bar chart */
+.mini-chart {
+  display:flex; align-items:flex-end; gap:3px;
+  height:36px; margin-top:6px;
+}
+.chart-bar {
+  flex:1; border-radius:1px 1px 0 0;
+  background:linear-gradient(180deg, var(--red) 0%, rgba(180,0,0,0.4) 100%);
+  box-shadow:0 0 4px rgba(255,0,0,0.4);
+  transition:height 1s ease;
+}
+
+/* SSE log */
+#sse-log {
+  flex:1; overflow-y:auto; min-height:60px; max-height:100px;
+  font-family:var(--mono); font-size:9px;
+  color:var(--text-dim); line-height:1.5;
+}
+#sse-log::-webkit-scrollbar { width:2px; }
+#sse-log::-webkit-scrollbar-thumb { background:rgba(255,0,0,0.4); }
+.sse-entry { color:var(--text-dim); }
+.sse-entry .ts { color:rgba(255,0,0,0.5); margin-right:4px; }
+.sse-entry .msg { color:rgba(255,120,120,0.8); }
+
+/* ─────────────────────────────────────────
+   BOTTOM DOCK
+───────────────────────────────────────── */
+#bottom-dock {
+  position:fixed; bottom:0; left:0; right:0;
+  height:120px;
+  background:linear-gradient(0deg, rgba(20,0,0,0.98), rgba(5,0,0,0.9));
+  border-top:1px solid var(--red-border);
+  display:flex; flex-direction:column;
+  z-index:150;
+  box-shadow:0 -2px 30px rgba(255,0,0,0.25);
+}
+
+/* Transcript strip */
+#transcript-strip {
+  flex:1;
+  display:flex; align-items:center;
+  padding:0 20px;
+  overflow:hidden;
+  gap:12px;
+  border-bottom:1px solid rgba(255,0,0,0.15);
+}
+.transcript-msg {
+  display:flex; gap:6px; align-items:baseline;
+  flex-shrink:0;
+}
+.t-who {
+  font-family:var(--mono); font-size:9px; color:var(--red);
+  letter-spacing:2px; text-shadow:0 0 8px var(--red);
+}
+.t-text {
+  font-family:var(--ui); font-size:12px; font-weight:500;
+  color:rgba(255,180,180,0.9);
+}
+
+/* Control row */
+#control-row {
+  height:56px; display:flex; align-items:center;
+  padding:0 16px; gap:10px;
+}
+
+/* Connect button */
+#connect-btn {
+  padding:8px 20px;
+  background:rgba(200,0,0,0.2);
+  border:1.5px solid var(--red);
+  border-radius:3px;
+  color:var(--red); font-family:var(--brand); font-size:11px;
+  font-weight:700; letter-spacing:3px;
+  cursor:pointer; transition:all 0.25s;
+  white-space:nowrap;
+  box-shadow:0 0 12px rgba(255,0,0,0.3);
+}
+#connect-btn:hover {
+  background:rgba(255,0,0,0.3);
+  box-shadow:0 0 25px rgba(255,0,0,0.6);
+}
+#connect-btn.active {
+  background:rgba(255,0,0,0.25);
+  animation:btnPulse 1.5s ease-in-out infinite;
+}
+@keyframes btnPulse {
+  0%,100%{ box-shadow:0 0 12px rgba(255,0,0,0.4); }
+  50%    { box-shadow:0 0 30px rgba(255,0,0,0.8); }
+}
+
+/* Text input */
+#directive-input {
+  flex:1; height:36px;
+  background:rgba(10,0,0,0.8);
+  border:1px solid rgba(255,0,0,0.35);
+  border-radius:2px;
+  color:rgba(255,180,180,0.9);
+  font-family:var(--mono); font-size:12px;
+  padding:0 14px;
+  outline:none;
+  transition:border-color 0.2s;
+}
+#directive-input::placeholder { color:rgba(255,0,0,0.3); }
+#directive-input:focus { border-color:var(--red); box-shadow:0 0 10px rgba(255,0,0,0.3); }
+
+#send-btn {
+  padding:8px 16px;
+  background:rgba(180,0,0,0.3);
+  border:1px solid var(--red);
+  border-radius:2px;
+  color:var(--red); font-family:var(--mono); font-size:11px;
+  letter-spacing:2px; cursor:pointer;
+  transition:all 0.2s;
+}
+#send-btn:hover { background:rgba(255,0,0,0.4); box-shadow:0 0 12px rgba(255,0,0,0.5); }
+
+/* Tool badges */
+#tool-strip {
+  display:flex; align-items:center; gap:6px;
+  padding:0 8px;
+  overflow-x:auto; flex-shrink:0; max-width:340px;
+}
+#tool-strip::-webkit-scrollbar { height:2px; }
+#tool-strip::-webkit-scrollbar-thumb { background:rgba(255,0,0,0.4); }
+#tool-strip .badge {
+  padding:3px 8px;
+  background:rgba(100,0,0,0.2);
+  border:1px solid rgba(255,0,0,0.3);
+  border-radius:2px;
+  font-family:var(--mono); font-size:8px;
+  color:rgba(255,80,80,0.7);
+  white-space:nowrap;
+  cursor:default;
+  transition:all 0.2s;
+}
+#tool-strip .badge:hover {
+  background:rgba(255,0,0,0.2);
+  color:var(--red);
+  box-shadow:0 0 6px rgba(255,0,0,0.3);
+}
+
+/* ── Volume indicator ── */
+#vol-display {
+  font-family:var(--mono); font-size:10px;
+  color:var(--text-dim); white-space:nowrap; padding:0 4px;
+}
+
+/* ─────────────────────────────────────────
+   TARGETING RETICLE (overlaid on center)
+───────────────────────────────────────── */
+.reticle {
+  position:absolute; pointer-events:none;
+  border:1px solid rgba(255,0,0,0.25);
+  border-radius:50%;
+  top:50%; left:50%; transform:translate(-50%,-50%);
+}
+.reticle-1 { width:320px; height:320px; animation:spin1 20s linear infinite; }
+.reticle-2 { width:380px; height:380px; animation:spin2 15s linear infinite; border-style:dashed; border-color:rgba(255,0,0,0.15); }
+.reticle-3 { width:440px; height:440px; animation:spin1 25s linear infinite reverse; border-color:rgba(255,0,0,0.1); }
+
+/* cross-hair lines */
+.crosshair {
+  position:absolute; pointer-events:none;
+  top:50%; left:50%;
+}
+.crosshair-h {
+  width:440px; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(255,0,0,0.25) 30%, rgba(255,0,0,0.4) 50%, rgba(255,0,0,0.25) 70%, transparent);
+  transform:translate(-50%,-50%);
+}
+.crosshair-v {
+  width:1px; height:440px;
+  background:linear-gradient(180deg, transparent, rgba(255,0,0,0.25) 30%, rgba(255,0,0,0.4) 50%, rgba(255,0,0,0.25) 70%, transparent);
+  transform:translate(-50%,-50%);
+}
+
+/* degree tick labels */
+.deg-label {
+  position:absolute;
+  font-family:var(--mono); font-size:8px;
+  color:rgba(255,0,0,0.4);
+  top:50%; left:50%;
+}
+
+/* ─────────────────────────────────────────
+   ALERTS / NOTIFICATIONS
+───────────────────────────────────────── */
+#alerts {
+  position:fixed; top:70px; right:20px;
+  display:flex; flex-direction:column; gap:6px;
+  z-index:500; pointer-events:none;
+}
+.alert-toast {
+  padding:8px 14px;
+  background:rgba(30,0,0,0.9);
+  border:1px solid var(--red);
+  border-left:3px solid var(--red);
+  border-radius:2px;
+  font-family:var(--mono); font-size:10px;
+  color:var(--red);
+  box-shadow:0 0 15px rgba(255,0,0,0.4);
+  animation:toastIn 0.3s ease, toastOut 0.5s ease 3.5s forwards;
+  max-width:280px;
+}
+@keyframes toastIn  { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+@keyframes toastOut { to   { opacity:0; transform:translateX(20px); } }
+
+/* ─────────────────────────────────────────
+   CONNECTING SPINNER OVERLAY
+───────────────────────────────────────── */
+#connecting-overlay {
+  display:none;
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.7);
+  z-index:600;
+  align-items:center; justify-content:center;
+  flex-direction:column; gap:20px;
+}
+#connecting-overlay.show { display:flex; }
+.spinner {
+  width:80px; height:80px;
+  border:2px solid rgba(255,0,0,0.2);
+  border-top-color:var(--red);
+  border-radius:50%;
+  animation:spin1 0.8s linear infinite;
+  box-shadow:0 0 20px rgba(255,0,0,0.5);
+}
+.spinner-text {
+  font-family:var(--brand); font-size:12px; font-weight:700;
+  color:var(--red); letter-spacing:4px;
+  animation:blink 1s ease-in-out infinite;
+}
+
+</style>
+</head>
+<body>
+
+<!-- Brackets -->
+<div class="bracket bracket-tl"></div>
+<div class="bracket bracket-tr"></div>
+<div class="bracket bracket-bl"></div>
+<div class="bracket bracket-br"></div>
+
+<!-- Alerts container -->
+<div id="alerts"></div>
+
+<!-- Connecting overlay -->
+<div id="connecting-overlay">
+  <div class="spinner"></div>
+  <div class="spinner-text">ESTABLISHING LINK…</div>
+</div>
+
+<!-- ── TOP BAR ── -->
+<div id="top-bar">
+  <div class="logo-block">
+    <div class="logo-icon">U</div>
+    <div class="logo-text">
+      <h1>ULTRON</h1>
+      <p>AUTONOMOUS INTELLIGENCE CORE</p>
+    </div>
+  </div>
+
+  <div class="top-center">
+    <div class="hud-stat">
+      <div class="val" id="cpu-val">--</div>
+      <div class="lbl">CPU%</div>
+    </div>
+    <div class="hud-stat">
+      <div class="val" id="ram-val">--</div>
+      <div class="lbl">RAM%</div>
+    </div>
+    <div class="hud-stat">
+      <div class="val">{tools_count}</div>
+      <div class="lbl">TOOLS</div>
+    </div>
+    <div class="hud-stat">
+      <div class="val" id="ping-val">--</div>
+      <div class="lbl">PING ms</div>
+    </div>
+  </div>
+
+  <div class="top-right">
+    <div class="tools-count">GEMINI-FLASH</div>
+    <div class="status-pill" id="status-pill">◉ ONLINE</div>
+  </div>
+</div>
+
+<!-- ── TICKER TAPE ── -->
+<div id="ticker">
+  <div id="ticker-inner">
+    <span>ULTRON COMMAND INTERFACE v3.0</span><span class="sep"> /// </span>
+    <span>STT: DEEPGRAM NOVA-3</span><span class="sep"> /// </span>
+    <span>LLM: GEMINI-3.1-FLASH-LITE</span><span class="sep"> /// </span>
+    <span>TTS: AURA-ZEUS</span><span class="sep"> /// </span>
+    <span>ROOM: ULTRON-COMMAND-ROOM</span><span class="sep"> /// </span>
+    <span>SECURITY: LEVEL 5 CLEARANCE</span><span class="sep"> /// </span>
+    <span>CREATOR: VISHNU</span><span class="sep"> /// </span>
+    <span>STATUS: AWAITING ACTIVATION</span><span class="sep"> /// </span>
+    <!-- duplicate for seamless loop -->
+    <span>ULTRON COMMAND INTERFACE v3.0</span><span class="sep"> /// </span>
+    <span>STT: DEEPGRAM NOVA-3</span><span class="sep"> /// </span>
+    <span>LLM: GEMINI-3.1-FLASH-LITE</span><span class="sep"> /// </span>
+    <span>TTS: AURA-ZEUS</span><span class="sep"> /// </span>
+    <span>ROOM: ULTRON-COMMAND-ROOM</span><span class="sep"> /// </span>
+    <span>SECURITY: LEVEL 5 CLEARANCE</span><span class="sep"> /// </span>
+    <span>CREATOR: VISHNU</span><span class="sep"> /// </span>
+    <span>STATUS: AWAITING ACTIVATION</span><span class="sep"> /// </span>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div id="main">
+
+  <!-- LEFT WING -->
+  <div id="left-wing">
+
+    <div class="panel">
+      <div class="panel-title">◈ SYSTEM VITALS</div>
+      <div class="vital-row">
+        <span class="v-lbl">CPU LOAD</span>
+        <div class="vital-track"><div class="vital-fill" id="cpu-bar" style="width:45%"></div></div>
+        <span class="v-val" id="cpu-bar-val">45%</span>
+      </div>
+      <div class="vital-row">
+        <span class="v-lbl">MEMORY</span>
+        <div class="vital-track"><div class="vital-fill" id="ram-bar" style="width:62%"></div></div>
+        <span class="v-val" id="ram-bar-val">62%</span>
+      </div>
+      <div class="vital-row">
+        <span class="v-lbl">NEURAL NET</span>
+        <div class="vital-track"><div class="vital-fill" style="width:88%"></div></div>
+        <span class="v-val">88%</span>
+      </div>
+      <div class="vital-row">
+        <span class="v-lbl">POWER CORE</span>
+        <div class="vital-track"><div class="vital-fill" style="width:100%; animation-duration:1.2s"></div></div>
+        <span class="v-val">100%</span>
+      </div>
+      <div class="waveform" id="waveform">
+        <!-- bars added by JS -->
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">◈ INTELLIGENCE CORE</div>
+      <div class="info-row"><span class="i-lbl">STT</span><span class="i-val">DEEPGRAM</span></div>
+      <div class="info-row"><span class="i-lbl">LLM</span><span class="i-val">GEMINI 3.1</span></div>
+      <div class="info-row"><span class="i-lbl">TTS</span><span class="i-val">AURA-ZEUS</span></div>
+      <div class="info-row"><span class="i-lbl">ROOM</span><span class="i-val">CMD-ROOM</span></div>
+      <div class="info-row"><span class="i-lbl">IDENTITY</span><span class="i-val">VISHNU</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">◈ DIRECTIVES</div>
+      <button class="action-btn" onclick="sendDirective('Run full system diagnostics and report status')">SCAN HEALTH</button>
+      <button class="action-btn" style="margin-top:6px" onclick="sendDirective('Get latest technology news')">TECH INTEL</button>
+      <button class="action-btn" style="margin-top:6px" onclick="sendDirective('Get world news headlines')">WORLD INTEL</button>
+      <button class="action-btn" style="margin-top:6px" onclick="sendDirective('Adjust system volume to 60 percent')">VOL 60%</button>
+      <button class="action-btn" style="margin-top:6px" onclick="sendDirective('Activate security lockdown protocol')">LOCKDOWN</button>
+    </div>
+
+  </div>
+
+  <!-- CENTER -->
+  <div id="center">
+
+    <!-- Canvas for outer HUD rings -->
+    <canvas id="hud-canvas"></canvas>
+
+    <!-- Reticle rings -->
+    <div class="reticle reticle-1"></div>
+    <div class="reticle reticle-2"></div>
+    <div class="reticle reticle-3"></div>
+    <div class="crosshair crosshair-h"></div>
+    <div class="crosshair crosshair-v"></div>
+
+    <!-- Compass degree labels -->
+    <div class="deg-label" style="top:calc(50% - 230px); transform:translateX(-50%)">000°</div>
+    <div class="deg-label" style="top:50%; left:calc(50% + 222px); transform:translateY(-50%)">090°</div>
+    <div class="deg-label" style="top:calc(50% + 218px); transform:translateX(-50%)">180°</div>
+    <div class="deg-label" style="top:50%; left:calc(50% - 230px); transform:translateY(-50%)">270°</div>
+
+    <!-- North panel -->
+    <div class="quad-panel quad-n">
+      <div class="quad-title">THREAT LEVEL</div>
+      <div class="quad-value">00</div>
+      <div class="quad-unit">SECTOR CLEAR</div>
+    </div>
+
+    <!-- South panel -->
+    <div class="quad-panel quad-s">
+      <div class="quad-title">UPTIME</div>
+      <div class="quad-value" id="uptime-val">00:00</div>
+      <div class="quad-unit">HH:MM:SS</div>
+    </div>
+
+    <!-- West panel -->
+    <div class="quad-panel quad-w" style="text-align:right">
+      <div class="quad-title">POWER</div>
+      <div class="quad-value">∞</div>
+      <div class="quad-unit">ARC REACTOR</div>
+    </div>
+
+    <!-- East panel -->
+    <div class="quad-panel quad-e">
+      <div class="quad-title">LATENCY</div>
+      <div class="quad-value" id="latency-val">--</div>
+      <div class="quad-unit">MILLISECONDS</div>
+    </div>
+
+    <!-- Core orb -->
+    <div class="core-wrap">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+      <div class="ring ring-3"></div>
+      <div class="ring-ticks"></div>
+      <div class="core-orb">
+        <div class="orb-letter">U</div>
+      </div>
+      <div class="core-status" id="core-status">STANDBY</div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT WING -->
+  <div id="right-wing">
+
+    <div class="panel">
+      <div class="panel-title">◈ FINANCE MONITOR</div>
+      <div class="info-row"><span class="i-lbl">BTC</span><span class="i-val" id="btc-val">LOADING…</span></div>
+      <div class="info-row"><span class="i-lbl">S&amp;P 500</span><span class="i-val" id="sp-val">—</span></div>
+      <div class="info-row"><span class="i-lbl">NASDAQ</span><span class="i-val" id="nq-val">—</span></div>
+      <div class="mini-chart" id="mini-chart">
+        <!-- bars added by JS -->
+      </div>
+    </div>
+
+    <div class="panel" style="flex:1">
+      <div class="panel-title">◈ WORLD INTEL</div>
+      <div id="news-feed">
+        <div class="news-item"><span class="n-tag">[INT]</span>Monitoring global threat vectors…</div>
+        <div class="news-item"><span class="n-tag">[TEC]</span>AI systems nominal. Awaiting directive.</div>
+        <div class="news-item"><span class="n-tag">[SEC]</span>Perimeter secured. Level 5 active.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">◈ RAW SSE STREAM</div>
+      <div id="sse-log">
+        <div class="sse-entry"><span class="ts">[SYS]</span><span class="msg">Connecting to event stream…</span></div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /#main -->
+
+<!-- ── BOTTOM DOCK ── -->
+<div id="bottom-dock">
+  <div id="transcript-strip">
+    <div class="transcript-msg">
+      <span class="t-who">ULTRON</span>
+      <span class="t-text" id="transcript-text">All systems operational. Awaiting your command, Vishnu.</span>
+    </div>
+  </div>
+  <div id="control-row">
+    <button id="connect-btn" onclick="toggleConnect()">⬡ ENGAGE CORE</button>
+    <input type="text" id="directive-input" placeholder="Issue a directive to ULTRON…" onkeydown="if(event.key==='Enter') sendText()">
+    <button id="send-btn" onclick="sendText()">SEND ▶</button>
+    <div id="vol-display">VOL: --</div>
+    <div id="tool-strip">{tool_badges}</div>
+  </div>
+</div>
+
+<script>
+// ── LiveKit globals ──
+const LIVEKIT_URL = 'wss://vishnu-s-ultron-l79ir914.livekit.cloud';
+let room = null;
+let connected = false;
+let startTime = Date.now();
+
+// ── Waveform bars init ──
+const wf = document.getElementById('waveform');
+for (let i = 0; i < 24; i++) {
+  const b = document.createElement('div');
+  b.className = 'waveform-bar';
+  b.style.height = Math.random() * 24 + 4 + 'px';
+  b.style.animationDelay = (Math.random() * 0.6) + 's';
+  b.style.animationDuration = (0.4 + Math.random() * 0.5) + 's';
+  wf.appendChild(b);
+}
+
+// ── Mini chart bars init ──
+const mc = document.getElementById('mini-chart');
+const chartData = [40,55,35,70,60,80,65,75,50,90,72,85];
+chartData.forEach(v => {
+  const b = document.createElement('div');
+  b.className = 'chart-bar';
+  b.style.height = v + '%';
+  mc.appendChild(b);
+});
+
+// ── Uptime counter ──
+function pad(n) { return String(n).padStart(2,'0'); }
+setInterval(() => {
+  const s = Math.floor((Date.now()-startTime)/1000);
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  document.getElementById('uptime-val').textContent = pad(h)+':'+pad(m)+':'+pad(ss);
+}, 1000);
+
+// ── Simulated telemetry ──
+function updateTelemetry() {
+  const cpu = Math.floor(35 + Math.random()*45);
+  const ram = Math.floor(55 + Math.random()*30);
+  document.getElementById('cpu-val').textContent = cpu;
+  document.getElementById('ram-val').textContent = ram;
+  document.getElementById('cpu-bar').style.width = cpu + '%';
+  document.getElementById('cpu-bar-val').textContent = cpu + '%';
+  document.getElementById('ram-bar').style.width = ram + '%';
+  document.getElementById('ram-bar-val').textContent = ram + '%';
+}
+setInterval(updateTelemetry, 3000);
+updateTelemetry();
+
+// ── Ping simulation ──
+function updatePing() {
+  const p = Math.floor(12 + Math.random()*40);
+  document.getElementById('ping-val').textContent = p;
+  if (connected) document.getElementById('latency-val').textContent = p;
+}
+setInterval(updatePing, 4000);
+updatePing();
+
+// ── Alerts ──
+function showAlert(msg) {
+  const a = document.getElementById('alerts');
+  const t = document.createElement('div');
+  t.className = 'alert-toast';
+  t.textContent = '⚡ ' + msg;
+  a.appendChild(t);
+  setTimeout(() => t.remove(), 4200);
+}
+
+// ── Toast notifications ──
+setTimeout(() => showAlert('ULTRON core online. Ready.'), 800);
+setTimeout(() => showAlert('MCP tools loaded: {tools_count} active'), 2000);
+
+// ── HUD canvas rings ──
+const canvas = document.getElementById('hud-canvas');
+const ctx = canvas.getContext('2d');
+let angle = 0;
+
+function resizeCanvas() {
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = canvas.parentElement.clientHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function drawHUD() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cx = canvas.width/2, cy = canvas.height/2;
+  angle += 0.005;
+
+  // outer decorative rings
+  [530, 490, 460].forEach((r,i) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle * (i%2===0 ? 1 : -1));
+    ctx.beginPath();
+    ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.strokeStyle = `rgba(255,0,0,${0.06-i*0.015})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 20]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  });
+
+  // tick marks on outermost ring
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle * 0.3);
+  for (let d=0; d<360; d+=15) {
+    const rad = (d * Math.PI/180);
+    const inner = d%90===0 ? 500 : (d%30===0 ? 510 : 518);
+    const outer = 530;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(rad)*inner, Math.sin(rad)*inner);
+    ctx.lineTo(Math.cos(rad)*outer, Math.sin(rad)*outer);
+    ctx.strokeStyle = d%90===0 ? 'rgba(255,0,0,0.6)' : 'rgba(255,0,0,0.25)';
+    ctx.lineWidth = d%90===0 ? 2 : 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // data arc segments
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle * 0.8);
+  for (let i=0; i<12; i++) {
+    const start = i*(Math.PI*2/12);
+    const end = start + (Math.PI*2/12)*0.7;
+    ctx.beginPath();
+    ctx.arc(0,0,560,start,end);
+    ctx.strokeStyle = `rgba(255,0,0,${0.1+Math.sin(angle*3+i)*0.05})`;
+    ctx.lineWidth = 6;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  requestAnimationFrame(drawHUD);
+}
+drawHUD();
+
+// ── SSE Stream ──
+const sseLog = document.getElementById('sse-log');
+function addSSE(msg) {
+  const now = new Date();
+  const ts = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+  const e = document.createElement('div');
+  e.className = 'sse-entry';
+  e.innerHTML = `<span class="ts">[${ts}]</span><span class="msg"> ${msg}</span>`;
+  sseLog.appendChild(e);
+  sseLog.scrollTop = sseLog.scrollHeight;
+}
+
+try {
+  const es = new EventSource('http://127.0.0.1:8000/sse');
+  es.onmessage = e => { if(e.data && e.data !== ':') addSSE(e.data.substring(0,80)); };
+  es.onerror   = () => addSSE('Stream reconnecting…');
+} catch(e) {}
+
+// ── Connect / Disconnect ──
+async function toggleConnect() {
+  if (!connected) {
+    await doConnect();
+  } else {
+    doDisconnect();
+  }
+}
+
+async function doConnect() {
+  const overlay = document.getElementById('connecting-overlay');
+  overlay.classList.add('show');
+  document.getElementById('core-status').textContent = 'CONNECTING';
+
+  try {
+    const res = await fetch('/api/token');
+    const { token, error } = await res.json();
+    if (error) { showAlert('TOKEN ERROR: ' + error); overlay.classList.remove('show'); return; }
+
+    room = new LivekitClient.Room({
+      adaptiveStream: true,
+      dynacast: true,
+      audioCaptureDefaults: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+    });
+
+    room.on(LivekitClient.RoomEvent.Connected, () => {
+      connected = true;
+      overlay.classList.remove('show');
+      document.getElementById('connect-btn').textContent = '⬡ DISENGAGE';
+      document.getElementById('connect-btn').classList.add('active');
+      document.getElementById('core-status').textContent = 'LISTENING';
+      document.getElementById('status-pill').textContent = '◉ LINKED';
+      setTranscript('ULTRON', 'Link established. Standing by, Vishnu.');
+      showAlert('Voice link established');
+    });
+
+    room.on(LivekitClient.RoomEvent.Disconnected, () => {
+      connected = false;
+      document.getElementById('connect-btn').textContent = '⬡ ENGAGE CORE';
+      document.getElementById('connect-btn').classList.remove('active');
+      document.getElementById('core-status').textContent = 'STANDBY';
+      document.getElementById('status-pill').textContent = '◉ ONLINE';
+      showAlert('Link severed');
+    });
+
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+      if (track.kind === 'audio') {
+        const el = track.attach();
+        el.style.display='none';
+        document.body.appendChild(el);
+        setTranscript('ULTRON', 'Audio channel open.');
+      }
+    });
+
+    room.on(LivekitClient.RoomEvent.DataReceived, (payload, participant) => {
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === 'transcript') {
+          setTranscript(msg.role === 'user' ? 'VISHNU' : 'ULTRON', msg.text);
+        }
+      } catch(e) {}
+    });
+
+    await room.connect(LIVEKIT_URL, token);
+
+    // Enable microphone
+    await room.localParticipant.setMicrophoneEnabled(true);
+
+  } catch(err) {
+    overlay.classList.remove('show');
+    document.getElementById('core-status').textContent = 'ERROR';
+    showAlert('CONNECTION FAILED: ' + err.message);
+    console.error(err);
+  }
+}
+
+function doDisconnect() {
+  if (room) room.disconnect();
+  room = null;
+}
+
+// ── Text directive ──
+async function sendText() {
+  const input = document.getElementById('directive-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  setTranscript('VISHNU', text);
+  await sendDirective(text);
+}
+
+async function sendDirective(text) {
+  if (!room || !connected) {
+    showAlert('ENGAGE CORE first to issue directives');
+    return;
+  }
+  setTranscript('VISHNU', text);
+  try {
+    const payload = new TextEncoder().encode(JSON.stringify({ type:'text_input', text }));
+    await room.localParticipant.publishData(payload, { reliable:true });
+  } catch(e) {
+    showAlert('DIRECTIVE ERROR: ' + e.message);
+  }
+}
+
+// ── Transcript ──
+function setTranscript(who, text) {
+  document.getElementById('transcript-text').textContent = text;
+  const whoEl = document.querySelector('.t-who');
+  if (whoEl) whoEl.textContent = who;
+
+  // also update core status based on who spoke
+  if (who === 'ULTRON') {
+    document.getElementById('core-status').textContent = 'RESPONDING';
+    setTimeout(() => {
+      if (connected) document.getElementById('core-status').textContent = 'LISTENING';
+    }, 3000);
+  }
+}
+
+// ── Finance mock ticker ──
+const tickers = ['BTC','SP','NQ'];
+function updateFinance() {
+  document.getElementById('btc-val').textContent = '$' + (95000 + Math.floor(Math.random()*3000)).toLocaleString();
+  document.getElementById('sp-val').textContent = (5800 + Math.floor(Math.random()*200)).toFixed(0);
+  document.getElementById('nq-val').textContent = (19500 + Math.floor(Math.random()*500)).toFixed(0);
+
+  // animate chart bars
+  document.querySelectorAll('.chart-bar').forEach(b => {
+    b.style.height = (30 + Math.random()*70) + '%';
+  });
+}
+setInterval(updateFinance, 8000);
+updateFinance();
+
+// ── Volume monitor ──
+function checkVolume() {
+  document.getElementById('vol-display').textContent = 'VOL: SYS';
+}
+checkVolume();
+
+// keyboard shortcut: Enter = send
+document.getElementById('directive-input').addEventListener('keydown', e => {
+  if(e.key==='Enter') sendText();
+});
+</script>
+</body>
+</html>
